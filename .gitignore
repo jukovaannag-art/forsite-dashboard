@@ -1,0 +1,16 @@
+# Секреты: пароль дашборда и ID таблицы клиента
+.streamlit/secrets.toml
+.env
+*.key
+*.pem
+
+# Данные с возможными ПД
+*.csv
+
+# Системное
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+Thumbs.db
