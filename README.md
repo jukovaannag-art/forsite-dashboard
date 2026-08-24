@@ -32,6 +32,7 @@ forsite/dashboard/auth.py        ->  auth.py
 | `charts.py` | построение всех блоков |
 | `loader.py` | загрузка и нормализация данных из таблицы |
 | `auth.py` | вход по паролю |
+| `.streamlit/config.toml` | убирает из интерфейса кнопки «Fork» и GitHub, задаёт цвет |
 
 ## Локальный запуск
 

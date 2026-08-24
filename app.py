@@ -46,13 +46,9 @@ def main() -> None:
     last = closed.iloc[-1]
     weeks = charts.weeks_or_none(int(last["god"]))
 
-    st.caption(
-        f"Данные за последний закрытый месяц: **{last['mes']} {last['god']}**. "
-        "Дашборд читает вашу таблицу напрямую - внесённые изменения появятся здесь "
-        "в течение получаса."
-    )
-
+    st.caption(f"Данные за последний закрытый месяц: **{last['mes']} {last['god']}**.")
     charts.running_month_note(charts.current_month(df))
+    charts.refresh_button()
 
     _summary(closed)
     st.divider()

@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -451,6 +451,31 @@ CHANNEL_COLORS = {
 DEFAULT_CHANNELS = [
     "Яндекс.Директ (поиск)", "Яндекс.РСЯ", "Яндекс.Карты", "2ГИС", "Google",
 ]
+
+
+@st.cache_data(ttl=CACHE_TTL)
+def data_loaded_at() -> datetime:
+    """Момент загрузки данных.
+
+    Живёт в том же кэше с тем же сроком, что и сами данные: истекает вместе с ними
+    и сбрасывается той же кнопкой. Поэтому показывает именно время последнего чтения
+    таблицы, а не время открытия страницы.
+    """
+    return datetime.now()
+
+
+def refresh_button() -> None:
+    """Кнопка «Обновить данные»: сбросить кэш и перечитать таблицу прямо сейчас."""
+    left, right = st.columns([5, 1])
+    with left:
+        st.caption(
+            f"Данные прочитаны из таблицы в {data_loaded_at():%H:%M}. "
+            "Обновляются автоматически раз в полчаса - или сразу по кнопке."
+        )
+    with right:
+        if st.button("Обновить данные", width="stretch"):
+            st.cache_data.clear()
+            st.rerun()
 
 
 def running_month_note(row: pd.Series | None) -> None:
