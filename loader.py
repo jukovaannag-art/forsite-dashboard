@@ -35,12 +35,78 @@ GID = {
     "grafiki": 2143800596,
 }
 
-# Понедельные «Сводные» - по одному листу на год.
+# Понедельные «Сводные» - по одному листу на год. Это запасные значения: обычно лист
+# ищется в таблице по названию (см. svodnaya_gid), а сюда мы откатываемся, если Google
+# не отдал список листов.
 GID_SVODNAYA = {
     2024: 0,
     2025: 1570880931,
     2026: 603543607,
 }
+
+HTMLVIEW_URL = "https://docs.google.com/spreadsheets/d/{sheet_id}/htmlview"
+
+# «name: "Сводная_2026", pageUrl: "...", gid: "603543607"» - так Google перечисляет листы
+# в htmlview. Нежадный поиск между name и gid: поля идут в этом порядке.
+SHEET_RE = re.compile(r'name:\s*"([^"]+)",\s*pageUrl:.*?gid:\s*"(\d+)"', re.S)
+
+# Название вида «Сводная_2027», «сводная 2027», «Сводная-2027».
+SVODNAYA_RE = re.compile(r"сводн\w*[\s_-]*(\d{4})", re.IGNORECASE)
+
+_sheets_cache: dict[str, int] | None = None
+
+
+def discover_sheets(force: bool = False) -> dict[str, int]:
+    """Список листов таблицы: {название: gid}.
+
+    Нужен, чтобы не прописывать идентификаторы листов руками: клиент заводит
+    «Сводная_2027» - дашборд находит её сам. Результат держим в памяти процесса,
+    список листов меняется раз в год.
+
+    Если Google недоступен или ответ непонятный - возвращаем пустой словарь,
+    вызывающий код откатится на GID_SVODNAYA.
+    """
+    global _sheets_cache
+    if _sheets_cache is not None and not force:
+        return _sheets_cache
+
+    try:
+        resp = requests.get(HTMLVIEW_URL.format(sheet_id=sheet_id()), timeout=30)
+        resp.encoding = "utf-8"
+        if resp.status_code != 200:
+            _sheets_cache = {}
+        else:
+            _sheets_cache = {
+                name.strip(): int(gid) for name, gid in SHEET_RE.findall(resp.text)
+            }
+    except requests.RequestException:
+        _sheets_cache = {}
+    return _sheets_cache
+
+
+def reset_sheets_cache() -> None:
+    """Забыть список листов - чтобы кнопка «Обновить данные» находила новые листы."""
+    global _sheets_cache
+    _sheets_cache = None
+
+
+def svodnaya_gid(year: int) -> int | None:
+    """Идентификатор листа «Сводная_<год>»: сначала ищем в таблице, потом в запасных."""
+    for name, gid in discover_sheets().items():
+        found = SVODNAYA_RE.search(name)
+        if found and int(found.group(1)) == year:
+            return gid
+    return GID_SVODNAYA.get(year)
+
+
+def known_svodnaya_years() -> list[int]:
+    """Годы, за которые есть понедельный лист - для понятного сообщения об ошибке."""
+    years = {
+        int(found.group(1))
+        for name in discover_sheets()
+        if (found := SVODNAYA_RE.search(name))
+    }
+    return sorted(years or GID_SVODNAYA)
 
 EXPORT_URL = "https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
 
@@ -322,9 +388,14 @@ def _iter_week_blocks(raw: pd.DataFrame):
 
 
 def _read_svodnaya(year: int) -> pd.DataFrame:
-    if year not in GID_SVODNAYA:
-        raise SheetUnavailable(f"Нет листа «Сводная» за {year} год - только {sorted(GID_SVODNAYA)}.")
-    raw = pd.read_csv(io.StringIO(fetch_csv(GID_SVODNAYA[year])), header=None, dtype=str)
+    gid = svodnaya_gid(year)
+    if gid is None:
+        years = ", ".join(str(y) for y in known_svodnaya_years())
+        raise SheetUnavailable(
+            f"В таблице нет листа «Сводная_{year}». Есть за: {years}. "
+            "Как только лист появится, дашборд найдёт его сам."
+        )
+    raw = pd.read_csv(io.StringIO(fetch_csv(gid)), header=None, dtype=str)
     return raw.fillna("")
 
 

@@ -475,6 +475,9 @@ def refresh_button() -> None:
     with right:
         if st.button("Обновить данные", width="stretch"):
             st.cache_data.clear()
+            # Список листов живёт отдельно от кэша данных - его тоже сбрасываем,
+            # иначе только что созданный лист «Сводная_2027» не найдётся.
+            loader.reset_sheets_cache()
             st.rerun()
 
 
