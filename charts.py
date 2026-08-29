@@ -118,10 +118,21 @@ def ru(value: float, digits: int = 0) -> str:
 
 
 def delta_text(current: float | None, previous: float | None, suffix: str = "") -> str | None:
+    """Изменение к базе: абсолютное, а рядом в скобках - относительное.
+
+    Относительное не показываем в трёх случаях: для долей (там суффикс « п.п.» - процент
+    от процента читается неверно), когда база равна нулю (деление на ноль) и когда текущее
+    значение - ноль при ненулевой базе. Последнее почти всегда означает, что данные за период
+    в таблицу ещё не внесены, а «-100,0%» читается как обвал бизнеса.
+    """
     if current is None or previous is None or pd.isna(current) or pd.isna(previous):
         return None
     diff = current - previous
-    return f"{'+' if diff >= 0 else '-'}{ru(abs(diff), 1 if suffix else 0)}{suffix}"
+    text = f"{'+' if diff >= 0 else '-'}{ru(abs(diff), 1 if suffix else 0)}{suffix}"
+    if suffix or not previous or not current:
+        return text
+    share = diff / previous * 100
+    return f"{text} ({'+' if share >= 0 else '-'}{ru(abs(share), 1)}%)"
 
 
 def metrics_row(items: list[tuple[str, float, float | None, int, str]]) -> None:
